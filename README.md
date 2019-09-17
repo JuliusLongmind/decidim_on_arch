@@ -6,7 +6,7 @@ This repository contains an Ansible playbook to support Decidim installation wit
 
 Example install command:
 
-> ansible-playbook site.yml -i hosts -u decidim --ask-become-pass --extra-vars '{"host":"192.168.122.100"}'
+> % ansible-playbook site.yml -i hosts -u decidim --ask-become-pass --extra-vars '{"host":"192.168.122.100"}'
 
 
 ## License
