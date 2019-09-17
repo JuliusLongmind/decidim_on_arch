@@ -1,0 +1,9 @@
+server {
+  listen 80;
+  server_name my-decidim.example.com {{ansible_default_ipv4.address}};
+  root /home/{{decidim.os_user}}/{{decidim.app_name}}/public;
+  passenger_enabled on;
+
+  # When you are ready to switch to production mode - change this to `production`
+  passenger_app_env production; # <-- !important      
+}

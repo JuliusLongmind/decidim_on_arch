@@ -1,0 +1,3 @@
+passenger_log_file /var/log/nginx/passenger.log;
+passenger_root {{passenger_root.stdout}}/gems/passenger-{{passenger_version.stdout}};
+passenger_ruby /home/{{decidim.os_user}}/.rbenv/shims/ruby;

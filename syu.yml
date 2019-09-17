@@ -1,0 +1,10 @@
+---
+- name: All hosts up-to-date
+  hosts: '{{ host }}'
+  become: yes
+
+  tasks:
+    - name: Full system upgrade
+      pacman:
+        update_cache: yes
+        upgrade: yes

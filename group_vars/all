@@ -1,0 +1,13 @@
+---
+# Variables listed here are applicable to all host groups
+
+postgresql:
+    root: /var/lib/postgres
+    options: --locale=en_US.UTF-8 -E UTF8
+
+decidim:
+    os_user: decidim
+    app_name: decidim_app
+    db_passwd: thepassword
+    system_email: email@fqdn
+    system_passwd: qwert123

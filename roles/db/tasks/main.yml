@@ -1,0 +1,34 @@
+---
+# This playbook will install postgresql and create db user and give permissions.
+
+- name: check if postgres root exists
+  stat:
+   path: "{{postgresql.root}}/data/base"
+  register: postgresql_root
+  become: yes
+  become_user: postgres
+
+- name: Initialize database cluster
+  shell: initdb {{postgresql.options}} -D {{postgresql.root}}/data
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: postgres
+  when: postgresql_root.stat.exists == false
+
+- name: Make sure a service is running
+  systemd:
+    state: started
+    name: postgresql
+
+- name: Drop decidim user first
+  command: psql -c "DROP ROLE IF EXISTS {{decidim.app_name}}"
+  become: yes
+  become_user: postgres
+  ignore_errors: yes
+
+- name: Create decidim user, set password, grant privs
+  command: psql -c "CREATE USER {{decidim.app_name}} WITH SUPERUSER CREATEDB NOCREATEROLE PASSWORD '{{decidim.db_passwd}}'"
+  become: yes
+  become_user: postgres
+  ignore_errors: yes

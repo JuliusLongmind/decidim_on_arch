@@ -1,0 +1,15 @@
+---
+
+- name: Full system upgrade
+  import_playbook: syu.yml
+
+- name: Install Decidim, Rails, Nginx, Passenger
+  hosts: '{{ host }}'
+  become: yes
+  become_method: sudo
+
+  roles:
+    - common
+    - db
+    - web
+    - app

@@ -1,0 +1,206 @@
+---
+
+- name: Make sure a service is running
+  systemd:
+    state: started
+    name: nginx
+
+- name: Extend .zshrc with rbenv
+  lineinfile:
+    path: /home/{{decidim.os_user}}/.zshrc
+    line: 'eval "$(rbenv init -)"'
+    insertbefore: EOF
+
+- name: Set gems env
+  copy:
+    dest: '/home/{{decidim.os_user}}/.gemrc'
+    content: |
+        gem: --no-document
+    owner: '{{decidim.os_user}}'
+    group: users
+- name: More space needed in /tmp in order to compile ruby
+  command: 'umount -l /tmp'
+  ignore_errors: yes
+
+- name: Determine ruby version
+  shell: . /home/{{decidim.os_user}}/.zshrc && rbenv version | cut -d"(" -f 1 | cut -c 1-5
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+  register: version_num
+  changed_when: false
+
+- set_fact:
+    ruby_version: '{{version_num.stdout}}'
+
+- name: Install ruby 2.6.4
+  shell: . /home/'{{decidim.os_user}}'/.zshrc &&rbenv install 2.6.4
+  become: yes
+  become_user: '{{decidim.os_user}}'
+  args:
+    executable: /bin/zsh
+  when: ruby_version != "2.6.4"
+
+- name: Set ruby 2.6.4 global
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && rbenv global 2.6.4
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+
+- name: Install decidim gem
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && gem install decidim
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+
+- name: Install decidim app
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && decidim '{{decidim.app_name}}'
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+
+- name: Install passenger gem
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && gem install passenger
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+
+- name: Determine versions for passenger compilation
+  shell: . /home/{{decidim.os_user}}/.zshrc && {{ item }}
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+  register: version_nums
+  changed_when: false
+  with_items:
+    - gem env 2> /dev/null| grep "\- INSTALLATION DIRECTORY" | awk -F":" '{print $2}' | tr -d ' '
+    - gem list passenger --versions 2> /dev/null | tail -n 1 | cut -d"(" -f 2 | cut -c 1-5
+
+- set_fact:
+    passenger_root: '{{version_nums.results[0]}}'
+    passenger_version: '{{version_nums.results[1]}}'
+
+- name: Compile passenger agent
+  shell: . /home/{{decidim.os_user}}/.zshrc && yes no | {{passenger_root.stdout}}/gems/passenger-{{passenger_version.stdout}}/bin/passenger-config compile-agent --force
+  args:
+    executable: /bin/zsh
+  become: yes
+  become_user: '{{decidim.os_user}}'
+
+- name: Modify Gemfile for production
+  blockinfile:
+    path: /home/{{decidim.os_user}}/{{decidim.app_name}}/Gemfile
+    block: |
+      group :production do
+        gem "passenger"
+        gem 'delayed_job_active_record'
+        gem "daemons"
+      end
+    marker: ""
+    insertbefore: EOF
+
+- name: Add figaro to Gemfile
+  lineinfile:
+    path: /home/{{decidim.os_user}}/{{decidim.app_name}}/Gemfile
+    line: 'gem "figaro"'
+    insertbefore: '^group :development, :test do'
+
+- name: Install bundle
+  sudo: no
+  shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bundle install && bundle update rake
+  args:
+    executable: /bin/zsh
+
+- name: Generate secret
+  sudo: no
+  shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && rake secret
+  register: secret_sum
+  args:
+    executable: /bin/zsh
+
+- name: Add database to config
+  copy:
+    dest: "/home/{{decidim.os_user}}/{{decidim.app_name}}/config/application.yml"
+    content: |
+        DATABASE_URL: postgres://{{decidim.app_name}}:thepassword@localhost/decidim_prod
+
+        SECRET_KEY_BASE: {{secret_sum.stdout}}
+    owner: '{{decidim.os_user}}'
+    group: users
+
+- name: Run rails db creation
+  sudo: no
+  shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bin/rails db:create RAILS_ENV=production
+  args:
+    executable: /bin/zsh
+
+- name: Run rails db migraion & precompile
+  sudo: no
+  shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bin/rails assets:precompile db:migrate RAILS_ENV=production
+  args:
+    executable: /bin/zsh
+
+- name: Create nginx conf directory if it dont exist
+  file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: root
+    mode: 0755
+  with_items:
+    - /etc/nginx/conf.d
+    - /etc/nginx/sites-available
+    - /etc/nginx/sites-enabled
+
+- name: Copy mod-passenger config file
+  template: src=50-mod-http-passenger.conf.j2 dest=/etc/nginx/conf.d/50-mod-http-passenger.conf
+
+- name: Copy nginx server file
+  template: src=my-decidim.example.com.conf.j2 dest=/etc/nginx/sites-available/my-decidim.example.com.conf
+
+- name: Links available sites with enabled
+  file:
+    src: "/etc/nginx/sites-available/my-decidim.example.com.conf"
+    dest: "/etc/nginx/sites-enabled/my-decidim.example.com.conf"
+    state: link
+
+- name: Extend nginx.conf with include mods
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    line: '{{item}}'
+    insertbefore: '^}$'
+  with_items:
+    - '    include /etc/nginx/conf.d/*.conf;'
+    - '    include /etc/nginx/sites-enabled/*.conf;'
+
+- name: Insert passenger module into nginx.conf
+  lineinfile:
+    path: /etc/nginx/nginx.conf
+    line: '{{item}}'
+    insertafter: BOF
+  with_items:
+    - 'load_module /usr/lib/nginx/modules/ngx_http_passenger_module.so;'
+  notify: restart nginx
+
+- name: Creates directory for passenger
+  file:
+    path: "{{passenger_root.stdout}}/gems/passenger-{{passenger_version.stdout}}/buildout/support-binaries"
+    state: directory
+
+- name: Copy passenger agent
+  command: cp -r /home/{{decidim.os_user}}/.passenger/support-binaries/{{passenger_version.stdout}}/PassengerAgent {{passenger_root.stdout}}/gems/passenger-{{passenger_version.stdout}}/buildout/support-binaries
+
+- name: Setting rights for home
+  command: chmod o+x /home/{{decidim.os_user}}
+
+- name: Setting rights for the app
+  command: chmod o+x /home/{{decidim.os_user}}/{{decidim.app_name}}
+
+- name: Setting rights for the app/public
+  command: chmod o+x /home/{{decidim.os_user}}/{{decidim.app_name}}/public

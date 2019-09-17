@@ -1,0 +1,16 @@
+---
+
+- name: Run decidim system settings
+  sudo: no
+  shell:
+    cmd: |
+      . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bin/rails console -e production <<EOF
+      email = '{{decidim.system_email}}'
+      password = '{{decidim.system_passwd}}'
+      user = Decidim::System::Admin.new(email: email, password: password, password_confirmation: password)
+      user.save!
+      EOF
+  args:
+    executable: /bin/zsh
+
+

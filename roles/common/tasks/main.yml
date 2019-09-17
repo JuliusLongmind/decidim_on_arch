@@ -1,0 +1,37 @@
+---
+# This playbook contains common plays that will be run on all nodes.
+
+- name: Install needed packages
+  pacman:
+    name: git, nodejs, npm, postgresql, imagemagick, nginx, nginx-mod-passenger, passenger, wkhtmltopdf, yarn
+    state: present
+
+- name: Add additional user for AUR
+  user:
+    name: aur_builder
+    groups: wheel
+    append: yes
+    createhome: yes
+    state: present
+
+- name: Validate the additional user in sudoers
+  lineinfile:
+    path: /etc/sudoers.d/11-install-aur_builder
+    line: 'aur_builder ALL=(ALL) NOPASSWD: /usr/bin/pacman'
+    create: yes
+    validate: 'visudo -cf %s'
+
+- name: Install needed extra packages
+  aur:
+    name:
+      - rbenv
+      - ruby-build
+    skip_installed: true
+  become: yes
+  become_user: aur_builder
+
+- name: Remove additional user for AUR
+  user:
+    name: aur_builder
+    state: absent
+    remove: yes
