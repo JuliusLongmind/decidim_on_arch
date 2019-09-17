@@ -2,7 +2,7 @@
 
 [![Build Status](https://travis-ci.org/geerlingguy/ansible-for-devops.svg?branch=master)](https://travis-ci.org/geerlingguy/ansible-for-devops)
 
-This repository contains an Ansible playbook to support Decidim installation with all dependencies on Arhc linux.
+This repository contains an Ansible playbook to support Decidim installation with all dependencies on Arhc Linux.
 
 ## License
 
