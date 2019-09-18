@@ -1,4 +1,4 @@
-# Ansible for Decidim on Arch
+# Ansible playbook for Decidim on Arch
 
 [![Build Status](https://travis-ci.org/geerlingguy/ansible-for-devops.svg?branch=master)](https://travis-ci.org/geerlingguy/ansible-for-devops)
 
