@@ -34,16 +34,16 @@
 - set_fact:
     ruby_version: '{{version_num.stdout}}'
 
-- name: Install ruby 2.6.4
-  shell: . /home/'{{decidim.os_user}}'/.zshrc &&rbenv install 2.6.4
+- name: Install ruby {{ruby_needed}}
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && rbenv install {{ruby_needed}}
   become: yes
   become_user: '{{decidim.os_user}}'
   args:
     executable: /bin/zsh
-  when: ruby_version != "2.6.4"
+  when: ruby_version != '{{ruby_needed}}'
 
-- name: Set ruby 2.6.4 global
-  shell: . /home/'{{decidim.os_user}}'/.zshrc && rbenv global 2.6.4
+- name: Set ruby '{{ruby_version}}' global
+  shell: . /home/'{{decidim.os_user}}'/.zshrc && rbenv global {{ruby_needed}}
   args:
     executable: /bin/zsh
   become: yes

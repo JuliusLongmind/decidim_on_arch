@@ -11,3 +11,5 @@ decidim:
     db_passwd: thepassword
     system_email: email@fqdn
     system_passwd: qwert123
+
+ruby_needed: 2.6.5
