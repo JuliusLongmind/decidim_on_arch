@@ -111,6 +111,18 @@
     line: 'gem "figaro"'
     insertbefore: '^group :development, :test do'
 
+- name: Add sprockets to Gemfile
+  lineinfile:
+    path: /home/{{decidim.os_user}}/{{decidim.app_name}}/Gemfile
+    line: 'gem "sprockets", "~> 3.7.2"'
+    insertbefore: '^group :development, :test do'
+
+- name: Regress sprockets to 3.7.2
+  sudo: no
+  shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bundle update sprockets
+  args:
+    executable: /bin/zsh
+
 - name: Install bundle
   sudo: no
   shell: . /home/{{decidim.os_user}}/.zshrc && cd {{decidim.app_name}} && bundle install && bundle update rake
